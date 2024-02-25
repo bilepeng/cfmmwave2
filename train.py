@@ -79,11 +79,15 @@ if __name__ == "__main__":
     # selects the device to run the machine learning algorithm from
     if args.device is not None:
         device = args.device
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        # device = torch.device("mps")
+        device = "cuda"
     else:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    device = "cpu"
+        device = "cpu"
+
+    # else:
+    #     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = "cpu"
 
     # record training data
     if record:
@@ -169,8 +173,8 @@ if __name__ == "__main__":
             p, deficiency = model((channels - params["mean_channel"]) / params["std_channel"])
             sr = sumrate(10 ** (channels / 10), p, params)
             loss = -sr
-            conn_penalty = None
-            discreteness_penalty = None
+            # conn_penalty = None
+            # discreteness_penalty = None
             if params["epoch"] * 2 >= counter > params["epoch"]:
                 conn_penalty = calc_alm_penalty(deficiency, mu_conn_deficiency, lambda_conn_deficiency)
                 loss += conn_penalty
@@ -221,14 +225,14 @@ if __name__ == "__main__":
                     lambda_conn_deficiency, mu_conn_deficiency = alm_update_lambda_mu(lambda_conn_deficiency,
                                                                                       mu_conn_deficiency,
                                                                                       1,
-                                                                                      conn_penalty.mean())
+                                                                                      conn_penalty)
                     c = 1
                 if counter > params["epoch"] * 2:
                     discreteness_history.clear()
                     lambda_discreteness, mu_discreteness = alm_update_lambda_mu(lambda_discreteness,
                                                                                 mu_discreteness,
                                                                                 1e-1,
-                                                                                conn_penalty.mean())
+                                                                                conn_penalty)
 
             sr_test, deficiency_test, discreteness_penalty_test, compute_conn_deficiency = testing(model, dataset_testing,
                                                                                         params, counter)

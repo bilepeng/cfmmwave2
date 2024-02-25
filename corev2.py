@@ -424,7 +424,7 @@ def determine_temperature(counter, total_epoches):
 
 def alm_update_lambda_mu(old_lambda, old_mu, delta_mu, residual):
     mu = old_mu + delta_mu
-    lambdaa = old_lambda + old_mu * residual
+    lambdaa = old_lambda + old_mu * residual.mean().item()
     return lambdaa, mu
 
 

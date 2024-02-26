@@ -254,6 +254,8 @@ if __name__ == "__main__":
                 "Training/loss": loss,
                 "Training/lambda_conn_deficiency": lambda_conn_deficiency,
                 "Training/lambda_discreteness": lambda_discreteness,
+                "Training/mu_conn_deficiency": mu_conn_deficiency,
+                "Training/mu_discreteness": mu_discreteness,
                 "Training/conn_deficiency": deficiency,
                 "Training/lr": torch.tensor([optimizer.param_groups[0]["lr"]]),
                 "Testing/sum_rate": sr_test,

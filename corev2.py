@@ -423,9 +423,9 @@ def determine_temperature(counter, total_epoches):
 
 
 def alm_update_lambda_mu(old_lambda, old_mu, delta_mu, residual):
-    mu = old_mu + delta_mu
+    mu = torch.tensor((old_mu + delta_mu).item())
     lambdaa = old_lambda + old_mu * residual.mean().item()
-    return lambdaa, mu
+    return torch.maximum(lambdaa, torch.tensor(5000.)), torch.maximum(mu, torch.tensor(5000.))
 
 
 def whether_converged(indicator, obj="min", patience=100):

@@ -16,13 +16,11 @@ from collections import deque
 import sys
 
 torch.set_default_dtype(torch.float32)
-record = True
-tb = True
+tb = False
 try:
     from tensorboardX import SummaryWriter
 except:
     tb = False
-    record = False
 
 def record_w(writer, counter, **kwargs):
     for n, v in kwargs.items():
@@ -207,7 +205,7 @@ if __name__ == "__main__":
                 while len(loss_history) > params["patience"]:
                     loss_history.popleft()
                 loss_history.append(loss.mean().item())
-            if counter > params["epoch"] *2:
+            if counter > params["epoch"] * 2:
                 while len(discreteness_history) > params["patience"]:
                     discreteness_history.popleft()
                 discreteness_history.append(discreteness_penalty.mean().item())
@@ -219,19 +217,21 @@ if __name__ == "__main__":
             if counter > params["epoch"] * 2:
                 converged &= whether_converged(discreteness_history, "min", params["patience"])
             if converged:
+                c = 1
                 if counter > params["epoch"]:
                     loss_history.clear()
                     conn_deficiency_history.clear()
                     lambda_conn_deficiency, mu_conn_deficiency = alm_update_lambda_mu(lambda_conn_deficiency,
                                                                                       mu_conn_deficiency,
-                                                                                      1,
+                                                                                      1.,
+                                                                                      5e4,
                                                                                       conn_penalty)
-                    c = 1
                 if counter > params["epoch"] * 2:
                     discreteness_history.clear()
                     lambda_discreteness, mu_discreteness = alm_update_lambda_mu(lambda_discreteness,
                                                                                 mu_discreteness,
                                                                                 1e-1,
+                                                                                5e3,
                                                                                 conn_penalty)
 
             sr_test, deficiency_test, discreteness_penalty_test, compute_conn_deficiency = testing(model, dataset_testing,

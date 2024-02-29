@@ -69,7 +69,7 @@ if True:
     params["std_channel"] = 5
 
 # 5 APs and 4 users
-if False:
+if True:
     params["num_aps"] = 5
     params["num_users"] = 4
     params["mean_channel"] = -111.6

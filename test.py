@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import tikzplotlib
 import torch
-from corev2 import CFData
+from corev2 import CFData, sumrate
 from corev3 import GNNGumbelRecursive
 from torch.utils.data import DataLoader
 from pathlib import Path
@@ -40,7 +40,7 @@ def vis_results(ap, ue, selected_users):
         for ap_idx, ue_idx in enumerate(selected_users[k]):
             if ue_idx == -1:
                 continue
-            plt.plot([ap[ap_idx, 0], ue[0, ue_idx, 0]], [ap[ap_idx, 1], ue[0, ue_idx, 1]], c='green')
+            plt.plot([ap[ap_idx, 0], ue[0, ue_idx, 0]], [ap[ap_idx, 1], ue[0, ue_idx, 1]], c='gray')
 
 def pm(ue,dbm,params):
     f=''
@@ -55,18 +55,20 @@ def pm(ue,dbm,params):
         elif 0 < us[ue_idx] < params["min_conns_ue"]:
             f = '1' +  f
             c = 'black'
+            label = "Unconnected user" if ue_idx == 0 else None
         else:
             f = '' + f
-            c = 'red'
-        plt.scatter(ue[0, ue_idx, 0], ue[0, ue_idx, 1], c=c, marker='o', s=50, label='User')
+            c = 'gray'
+            label = "User" if ue_idx == 0 else None
+        plt.scatter(ue[0, ue_idx, 0], ue[0, ue_idx, 1], c=c, marker='o', s=50, label=label)
     return f
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--device")
     parser.add_argument("--model_path", default=None)
-    # parser.add_argument("--dataset_path", default='data/4ue_5aps/testing_data.npz')
-    parser.add_argument("--dataset_path", default='data/15ue_20aps/testing_data.npz')
+    parser.add_argument("--dataset_path", default='data/4ue_5aps/testing_data.npz')
+    # parser.add_argument("--dataset_path", default='data/15ue_20aps/testing_data.npz')
     args = parser.parse_args()
 
     if args.device is not None:
@@ -80,7 +82,7 @@ def main():
         model_path = args.model_path
         model_f = os.path.basename(os.path.dirname(model_path))
     else:
-        model_f = '28-02-2024_10-42-24' #Folder name of test model
+        model_f = 'small_scenario' #Folder name of test model
         model_path = latest_model_path(os.path.join('results', model_f))
 
     vis_path = Path(f'results/{model_f}/vis_test')
@@ -98,24 +100,27 @@ def main():
     data = CFData(params, path=args.dataset_path, device=device)
     test_loader = DataLoader(dataset=data, batch_size=1, shuffle=False)
     #4ue_5ap
-    # ap = torch.tensor([[5., 5.], [50., 5.], [95., 5.], [5., 95.], [50., 95.]])
+    ap = torch.tensor([[5., 5.], [50., 5.], [95., 5.], [5., 95.], [50., 95.]])
     #15ue_20ap
-    ap = torch.tensor([[50., 50.], [275., 50.], [500., 50.], [725., 50.], [950., 50.],
-                         [50., 350.], [275., 350.], [500., 350.], [725., 350.], [950., 350.],
-                         [50., 650.], [275., 650.], [500., 650.], [725., 650.], [950., 650.],
-                         [50., 950.], [275., 950.], [500., 950.], [725., 950.], [950., 950.]])
+    # ap = torch.tensor([[50., 50.], [275., 50.], [500., 50.], [725., 50.], [950., 50.],
+    #                      [50., 350.], [275., 350.], [500., 350.], [725., 350.], [950., 350.],
+    #                      [50., 650.], [275., 650.], [500., 650.], [725., 650.], [950., 650.],
+    #                      [50., 950.], [275., 950.], [500., 950.], [725., 950.], [950., 950.]])
     # ap = ap.flip(dims=[1])
 
     with torch.no_grad():
         for idx, (_, channels, ue) in enumerate(test_loader):
             assignment, _ = model((channels - params["mean_channel"]) / params["std_channel"])
+            sr = sumrate(10 ** (channels / 10), assignment, params)
+
             ue = ue.cpu()
             plot_ap_user(ap, ue)
+            f = pm(ue, sel_users, params)
             for i in range(assignment.shape[1]):
                 k = assignment.sum(dim=2).squeeze().round().int().max().item()
                 #k = params["max_conns_ap"]
                 sel_users = torch.topk(assignment[:, i, :, :], k, dim=-2).indices.squeeze()
-                f = pm(ue, sel_users, params)
+                # f = pm(ue, sel_users, params)
                 #print("Selected Users:", sel_users)
                 #mark_user(ue, sel_users)
                 vis_results(ap, ue, sel_users)

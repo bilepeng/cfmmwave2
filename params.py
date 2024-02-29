@@ -30,7 +30,7 @@ params = {
           "gamma_feature_dim": 10,  # 2D for InterferenceNet (power control problem)
           "lr": 1.732e-4,  # learning rate
           "gradient_accumulation": 1,
-          "min_lr": 1e-7,  # minimum learning rate in learning rate scheduler
+          "min_lr": 1e-5,  # minimum learning rate in learning rate scheduler
           "epoch": 30000,  # number of interations200000
           "batch_size": 512, # batch size
           "reduced_msg_input": True, # Whether x_i is input to phi, True if no x_i
@@ -44,7 +44,7 @@ params = {
           "num_data_samples": 10240, # number of drops
           "num_samples_chunks": 1024, # number of samples per chunk
           "results_path": "results/", # path to store the results
-          "patience": 100,
+          "patience": 150,
           }
 
 # 30 APs and 50 users. Set it to True to enable this setting

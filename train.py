@@ -16,7 +16,7 @@ from collections import deque
 import sys
 
 torch.set_default_dtype(torch.float32)
-tb = False
+tb = True
 try:
     from tensorboardX import SummaryWriter
 except:
@@ -50,9 +50,7 @@ def testing(model, data, params, counter):
         #平均每张图有多少个user不符合预期
         _, k = torch.topk(p_test, k=params["max_conns_ap"], dim=2)
         compute_conn_deficiency = torch.sum(torch.relu(params["min_conns_ue"] - torch.sum(torch.zeros_like(p_test).scatter_(2, k, 1), dim=-1)),dim=-1)
-        discreteness_penalty_test = None
-        if counter > params["epoch"] * 2:
-            discreteness_penalty_test = calc_discreteness_penalty2(p_test)
+        discreteness_penalty_test = calc_discreteness_penalty2(p_test)
     return sr_test, deficiency_test, discreteness_penalty_test,compute_conn_deficiency
 
 
@@ -71,6 +69,8 @@ if __name__ == "__main__":
     # in order to record the training behaviour with tensorboard
     if args.record is not None:
         record = tb and args.record == "True"
+    else:
+        record = tb
 
     # torch.set_default_dtype(torch.float32)
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
                 if counter // params["epoch"] < 2:
                     lr = params["lr"]
                 elif 2 <= counter // params["epoch"] < 5:
-                    lr = 5 * params["lr"]
+                    lr = 1 * params["lr"]  # was 5
                 else:
                     lr = None
                 if lr is not None:
@@ -171,16 +171,16 @@ if __name__ == "__main__":
             p, deficiency = model((channels - params["mean_channel"]) / params["std_channel"])
             sr = sumrate(10 ** (channels / 10), p, params)
             loss = -sr
-            # conn_penalty = None
             # discreteness_penalty = None
+            discreteness_penalty = calc_discreteness_penalty2(p)  # 0 这个函数被修改过加了1e-10
             if params["epoch"] * 2 >= counter > params["epoch"]:
-                conn_penalty = calc_alm_penalty(deficiency, mu_conn_deficiency, lambda_conn_deficiency)
-                loss += conn_penalty
+                conn_penalty2 = calc_alm_penalty(deficiency, mu_conn_deficiency, lambda_conn_deficiency)
+                loss += conn_penalty2
             elif counter > params["epoch"] * 2:
-                discreteness_penalty = calc_discreteness_penalty2(p)#0 这个函数被修改过加了1e-10
-                conn_penalty = calc_alm_penalty(deficiency, mu_conn_deficiency, lambda_conn_deficiency)
-                discreteness_penalty = calc_alm_penalty(discreteness_penalty, mu_discreteness, lambda_discreteness)
-                loss += conn_penalty + discreteness_penalty
+                # discreteness_penalty = calc_discreteness_penalty2(p)#0 这个函数被修改过加了1e-10
+                conn_penalty2 = calc_alm_penalty(deficiency, mu_conn_deficiency, lambda_conn_deficiency)
+                discreteness_penalty2 = calc_alm_penalty(discreteness_penalty, mu_discreteness, lambda_discreteness)
+                loss += conn_penalty2 + discreteness_penalty2
             loss.mean().backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2)#3 这两行进行了梯度剪裁
             torch.nn.utils.clip_grad_value_(model.parameters(), 1.9)# 同上
@@ -201,7 +201,7 @@ if __name__ == "__main__":
             if counter > params["epoch"]:
                 while len(conn_deficiency_history) > params["patience"]:
                     conn_deficiency_history.popleft()
-                conn_deficiency_history.append(conn_penalty.mean().item())
+                conn_deficiency_history.append(deficiency.mean().item())
                 while len(loss_history) > params["patience"]:
                     loss_history.popleft()
                 loss_history.append(loss.mean().item())
@@ -225,21 +225,21 @@ if __name__ == "__main__":
                                                                                       mu_conn_deficiency,
                                                                                       1.,
                                                                                       5e4,
-                                                                                      conn_penalty)
+                                                                                      deficiency)
                 if counter > params["epoch"] * 2:
                     discreteness_history.clear()
                     lambda_discreteness, mu_discreteness = alm_update_lambda_mu(lambda_discreteness,
                                                                                 mu_discreteness,
                                                                                 1e-1,
                                                                                 5e3,
-                                                                                conn_penalty)
+                                                                                discreteness_penalty)
 
             sr_test, deficiency_test, discreteness_penalty_test, compute_conn_deficiency = testing(model, dataset_testing,
                                                                                         params, counter)
 
             output = f"Iter={counter}, rate={sr.mean()}, compute_conn_deficiency={compute_conn_deficiency.mean()}"
             if counter > params["epoch"]:
-                output += f", loss={loss.mean()}, deficiency={conn_penalty.mean()}"
+                output += f", loss={loss.mean()}, deficiency={deficiency.mean()}"
                 if counter > params["epoch"] * 2:
                     output += f", discreteness={discreteness_penalty_test.mean()}"
             print(output)
@@ -258,13 +258,14 @@ if __name__ == "__main__":
                 "Training/mu_discreteness": mu_discreteness,
                 "Training/conn_deficiency": deficiency,
                 "Training/lr": torch.tensor([optimizer.param_groups[0]["lr"]]),
+                "Training/discreteness_penalty": discreteness_penalty,
                 "Testing/sum_rate": sr_test,
                 "Testing/conn_deficiency": deficiency_test,
-                "Testing/discreteness_penalty_test": discreteness_penalty_test,
+                "Testing/discreteness_penalty": discreteness_penalty_test,
                 "Training/converged":  torch.tensor([c]),
                 "compute_conn_deficiency":compute_conn_deficiency
             }
-            if record and counter % 100 == 0:
+            if record and counter % 500 == 0:
                 record_w(writer, counter, **data_to_record)
                 save_model(model, counter, params, optimizer, scheduler)
             counter += 1

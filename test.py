@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import tikzplotlib
 import torch
 from corev2 import CFData
 from corev3 import GNNGumbelRecursive
@@ -64,13 +65,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--device")
     parser.add_argument("--model_path", default=None)
-    parser.add_argument("--dataset_path", default='data/4ue_5aps/testing_data.npz')
+    # parser.add_argument("--dataset_path", default='data/4ue_5aps/testing_data.npz')
+    parser.add_argument("--dataset_path", default='data/15ue_20aps/testing_data.npz')
     args = parser.parse_args()
 
     if args.device is not None:
         device = args.device
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
+    # elif torch.backends.mps.is_available():
+    #     device = torch.device("mps")
     else:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -78,7 +80,7 @@ def main():
         model_path = args.model_path
         model_f = os.path.basename(os.path.dirname(model_path))
     else:
-        model_f = '05-02-2024_18-03-37' #Folder name of test model
+        model_f = '28-02-2024_10-42-24' #Folder name of test model
         model_path = latest_model_path(os.path.join('results', model_f))
 
     vis_path = Path(f'results/{model_f}/vis_test')
@@ -96,17 +98,17 @@ def main():
     data = CFData(params, path=args.dataset_path, device=device)
     test_loader = DataLoader(dataset=data, batch_size=1, shuffle=False)
     #4ue_5ap
-    ap = torch.tensor([[5., 5.], [50., 5.], [95., 5.], [5., 95.], [50., 95.]])
+    # ap = torch.tensor([[5., 5.], [50., 5.], [95., 5.], [5., 95.], [50., 95.]])
     #15ue_20ap
-    # ap = torch.tensor([[50., 50.], [275., 50.], [500., 50.], [725., 50.], [950., 50.],
-    #                      [50., 350.], [275., 350.], [500., 350.], [725., 350.], [950., 350.],
-    #                      [50., 650.], [275., 650.], [500., 650.], [725., 650.], [950., 650.],
-    #                      [50., 950.], [275., 950.], [500., 950.], [725., 950.], [950., 950.]])
+    ap = torch.tensor([[50., 50.], [275., 50.], [500., 50.], [725., 50.], [950., 50.],
+                         [50., 350.], [275., 350.], [500., 350.], [725., 350.], [950., 350.],
+                         [50., 650.], [275., 650.], [500., 650.], [725., 650.], [950., 650.],
+                         [50., 950.], [275., 950.], [500., 950.], [725., 950.], [950., 950.]])
     # ap = ap.flip(dims=[1])
 
     with torch.no_grad():
         for idx, (_, channels, ue) in enumerate(test_loader):
-            assignment, _, _ = model((channels - params["mean_channel"]) / params["std_channel"])
+            assignment, _ = model((channels - params["mean_channel"]) / params["std_channel"])
             ue = ue.cpu()
             plot_ap_user(ap, ue)
             for i in range(assignment.shape[1]):
@@ -122,6 +124,7 @@ def main():
             plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1, 1))
             plt.tight_layout()
             plt.savefig(os.path.join(vis_path, f'{f}{model_f}_{idx}.png'))
+            tikzplotlib.save(os.path.join(vis_path, f'{f}{model_f}_{idx}.tex'))
             #plt.savefig(os.path.join(vis_path, f'{model_f}_{idx}.png'))
             #plt.show()
             plt.close()
